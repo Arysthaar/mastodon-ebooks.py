@@ -30,7 +30,7 @@ def strip_tags(content):
 class MarkovModel(markovify.Text):
   def sentence_split(self, text):
     return text.split('\0')
-  
+
 # scrapes the accounts the bot is following to build corpus
 def scrape(mastodon):
   me = mastodon.account_verify_credentials()
@@ -42,7 +42,7 @@ def scrape(mastodon):
       acctjson = json.load(f)
   except:
     acctjson = {}
-  
+
   print(acctjson)
   for acc in following:
     id = str(acc['id'])
@@ -52,10 +52,10 @@ def scrape(mastodon):
     except:
       since_id = scrape_id(mastodon, id)
     acctjson[id] = since_id
-  
+
   with open(acctfile, 'w') as f:
     json.dump(acctjson, f)
-    
+
   # generate the whole corpus after scraping so we don't do at every runtime
   combined_model = None
   for (dirpath, _, filenames) in os.walk("corpus"):
@@ -113,7 +113,7 @@ def generate(length=None, seed_msg=''):
     sys.exit('no model -- please scrape first')
   with open(modelfile, 'r') as f:
     reconstituted_model = markovify.Text.from_json(f.read())
-  
+
   msg = ''
   if seed_msg is not '':
     list = seed_msg.split(' ')
@@ -132,7 +132,7 @@ def generate(length=None, seed_msg=''):
   else:
     msg = generate_length(reconstituted_model, length)
   return msg.replace(chr(31), "\n")
-  
+
 def generate_length(model, length=None):
   if length:
     return model.make_short_sentence(length)
@@ -143,7 +143,7 @@ def generate_length(model, length=None):
 def toot(mastodon):
   msg = generate(500)
   mastodon.toot(msg)
-  print('Tooted: %s' % msg)
+  #print('Tooted: %s' % msg)
 
 # simply prints a generated toot to the console
 def console():
@@ -163,13 +163,20 @@ def reply(mastodon):
     status = mention['status']
     vis = status['visibility']
     acct = status['account']['acct']
+    mentions = ""
+    for peoples in status['mentions']:
+      if peoples['acct'] != mastodon.account_verify_credentials()['acct'] and mastodon.account(peoples['id'])['bot'] == 0:
+        mentions = '{} @{}'.format(mentions, peoples['acct'])
     id = status['id']
     msg = strip_tags(status['content'])
     rsp = generate(400, msg)
     print (msg)
-    toot = '@{} {}'.format(acct, rsp)[:500]
+    if status['spoiler_text'] != None:
+      toot = '@{}{} {}'.format(acct, mentions, rsp)[:480]
+    else:
+      toot = '@{} {} {}'.format(acct, mentions, rsp)[:500]
     print(toot)
-    mastodon.status_post(toot, in_reply_to_id=id, visibility=vis)
+    mastodon.status_post(toot, in_reply_to_id=id, visibility=vis, spoiler_text=status['spoiler_text'][:20])
   #clear notifications
   mastodon._Mastodon__api_request('POST', '/api/v1/notifications/clear')
 
@@ -179,22 +186,22 @@ def usage():
   print('-p, --print: generates and prints to console')
   print('-s, --scrape: scrapes following accounts')
   print('-r, --reply: replies to mentions')
-  
+
 def main(argv):
-  
+
   # init mastodon
   from mastodon import Mastodon
   mastodon = Mastodon(
     #replace values/files with your own
     client_id = 'clientcred.secret',
     access_token = 'usercred.secret',
-    api_base_url = 'https://computerfairi.es'
+    api_base_url = 'https://botsin.space'
   )
 
-  try:                                
+  try:
     opts, args = getopt.getopt(argv, "trps", ["toot", "reply", "print", "scrape"])
-  except getopt.GetoptError:          
-    usage()                         
+  except getopt.GetoptError:
+    usage()
     sys.exit(2)
   for opt, arg in opts:
     if opt in ('-t','--toot'):

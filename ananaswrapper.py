@@ -14,26 +14,23 @@ class ebooksBot(PineappleBot):
     except:
       self.bot_name = ""
     self.scrape()
-    
+
   # clear notifications in case the bot will be run from mastodon-ebooks.py
   def close(self):
     self._Mastodon__api_request('POST', '/api/v1/notifications/clear')
-  
+
   @daily()
   def scrape(self):
     ebooks.scrape(self.mastodon)
-    
-  @hourly(minute=0)
-  @hourly(minute=30)
+
+  #@hourly(minute=7)
+  @hourly(minute=37)
+  @daily(hour=13, minute=12)
+  @daily(hour=16, minute=20)
   def toot(self):
     msg = ebooks.generate(500)
     self.mastodon.status_post(msg, visibility = self.visibility)
-    
+
   @reply
   def reply(self, mention, user):
-    msg = ebooks.strip_tags(mention['content'])
-    tgt = user['acct']
-    irt = mention['id']
-    vis = mention['visibility']
-    rsp = "@{} {}".format(tgt, ebooks.generate(400, msg))[:500]
-    self.mastodon.status_post(rsp, in_reply_to_id = irt, visibility = vis)
+    ebooks.reply(self.mastodon)
